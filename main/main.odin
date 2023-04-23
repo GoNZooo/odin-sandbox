@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:intrinsics"
 
 Unknown :: struct {
     value: string,
@@ -69,7 +70,13 @@ Token :: struct {
 }
 
 main :: proc() {
-    x := add(1, 2)
+    i := add(1, 2)
+    f := add(1.0, 2.0)
+    fmt.println(i, f)
+
+    // This doesn't compile, because it's not a numeric type
+    // s := add("hello", "world")
+
     token := Token{}
     print_token(token)
     fmt.println(token)
@@ -136,6 +143,6 @@ print_token :: proc(token: Token) {
     }
 }
 
-add :: proc(a: int, b: int) -> int {
+add :: proc(a, b: $T) -> T where intrinsics.type_is_numeric(T) {
     return a + b
 }
