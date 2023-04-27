@@ -3,6 +3,36 @@ package main
 import "core:fmt"
 import "core:intrinsics"
 
+Nothing :: struct {}
+
+Just :: struct($T: typeid) {
+    value: T,
+}
+
+Maybe :: union($T: typeid) {
+    Nothing,
+    Just(T),
+}
+
+unwrapMaybe :: proc($T: typeid, maybe: Maybe(T)) -> T {
+    value, ok := maybe.(Just(T))
+    if ok {
+        return value.value
+    } else {
+        panic("Tried to unwrap Nothing")
+    }
+}
+
+unwrapMaybeSwitch :: proc($T: typeid, maybe: Maybe(T)) -> T {
+  switch m in maybe {
+    case Nothing:
+        panic("Tried to unwrap Nothing")
+    case Just(T):
+        return m.value
+    }
+    unreachable()
+}
+
 Unknown :: struct {
     value: string,
 }
@@ -73,6 +103,10 @@ main :: proc() {
     i := add(1, 2)
     f := add(1.0, 2.0)
     fmt.println(i, f)
+    maybeValue := Just(int){value = 42}
+    value := unwrapMaybe(int, maybeValue)
+    valueFromSwitch := unwrapMaybeSwitch(int, maybeValue)
+    fmt.println("maybe:", maybeValue, "value:", value, "valueFromSwitch:", valueFromSwitch)
 
     // This doesn't compile, because it's not a numeric type
     // s := add("hello", "world")
