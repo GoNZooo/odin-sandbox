@@ -14,7 +14,22 @@ Maybe :: union($T: typeid) {
     Just(T),
 }
 
-unwrapMaybe :: proc($T: typeid, maybe: Maybe(T)) -> T {
+Left :: struct($L, $R: typeid) {
+    value: L,
+}
+
+Right :: struct($L, $R: typeid) {
+    value: R,
+}
+
+Either :: union($L, $R: typeid) {
+    Left(L, R),
+    Right(L, R),
+}
+
+unsafeUnwrap :: proc{unsafeUnwrapMaybe, unsafeUnwrapEither}
+
+unsafeUnwrapMaybe :: proc(maybe: Maybe($T)) -> T {
     value, ok := maybe.(Just(T))
     if ok {
         return value.value
@@ -23,14 +38,54 @@ unwrapMaybe :: proc($T: typeid, maybe: Maybe(T)) -> T {
     }
 }
 
-unwrapMaybeSwitch :: proc($T: typeid, maybe: Maybe(T)) -> T {
-  switch m in maybe {
-    case Nothing:
-        panic("Tried to unwrap Nothing")
-    case Just(T):
-        return m.value
-    }
-    unreachable()
+unsafeUnwrapEither :: proc(either: Either($L, $R)) -> R {
+  value, ok := either.(Right(L, R))
+  if ok {
+    return value.value
+  } else {
+    panic("Tried to unwrap Left")
+  }
+}
+
+unwrap :: proc{unwrapMaybe, unwrapEither}
+
+unwrapMaybe :: proc(maybe: Maybe($T), default: T) -> T {
+  return (maybe.(Just(T)) or_else Just(T){value = default}).value
+}
+
+unwrapEither :: proc(either: Either($L, $R), default: R) -> R {
+  return (either.(Right(L, R)) or_else Right(L, R){value = default}).value
+}
+
+fmap :: proc{fmapMaybe, fmapEither}
+
+fmapMaybe :: proc(maybe: Maybe($T), f: proc(T) -> $U) -> Maybe(U) {
+  value, ok := maybe.(Just(T))
+  if ok {
+    return Just(U){value = f(value.value)}
+  } else {
+    return Nothing{}
+  }
+}
+
+fmapEither :: proc(either: Either($L, $R), f: proc(R) -> $U) -> Either(L, U) {
+  switch e in either {
+    case Left(L, R): 
+      return Left(L, U){value = e.value}
+    
+    case Right(L, R): 
+      return Right(L, U){value = f(e.value)}
+  }
+
+  unreachable()
+}
+
+lookupInMapOrDefault :: proc(
+  m: map[$K]$V,
+  key: K,
+  default: V,
+) -> V {
+    return m[key] or_else default
 }
 
 Unknown :: struct {
@@ -103,10 +158,44 @@ main :: proc() {
     i := add(1, 2)
     f := add(1.0, 2.0)
     fmt.println(i, f)
-    maybeValue := Just(int){value = 42}
-    value := unwrapMaybe(int, maybeValue)
-    valueFromSwitch := unwrapMaybeSwitch(int, maybeValue)
-    fmt.println("maybe:", maybeValue, "value:", value, "valueFromSwitch:", valueFromSwitch)
+
+    // maybe
+    justValue: Maybe(int) = Just(int){value = 42}
+    value := unsafeUnwrap(justValue)
+    nothingValue: Maybe(int) = Nothing{}
+    safeValue := unwrap(justValue, 0)
+    safeValue2 := unwrap(nothingValue, 0)
+    fmt.println(
+      "just:", justValue,
+      "value:", value,
+      "safeValue:", safeValue,
+      "safeValue2:", safeValue2,
+      "justFmapped+1:", fmap(justValue, proc(x: int) -> int {return x + 1}),
+      "nothingFmapped+1:", fmap(nothingValue, proc(x: int) -> int {return x + 1}),
+    )
+
+    // either
+    rightValue: Either(int, string) = Right(int, string){value = "hello"}
+    leftValue: Either(int, string) = Left(int, string){value = 42}
+    unwrapped := unsafeUnwrap(rightValue)
+    rightUnwrappedSafely := unwrap(rightValue, "default")
+    safeUnwrapped2 := unwrap(leftValue, "default")
+    fmt.println(
+      "rightValue:", rightValue,
+      "leftValue:", leftValue,
+      "unwrapped:", unwrapped,
+      "safeUnwrapped:", rightUnwrappedSafely,
+      "safeUnwrapped2:", safeUnwrapped2,
+      "rightFmappedLen+1:", fmap(rightValue, proc(x: string) -> int {return len(x) + 1}),
+      "leftFmappedLen+1:", fmap(leftValue, proc(x: string) -> int {return len(x) + 1}),
+    )
+
+    // map
+    m := map[int]string{1 = "one", 2 = "two"}
+    fmt.println(lookupInMapOrDefault(m, 1, "default"))
+    fmt.println(m[1] or_else "default")
+    fmt.println(lookupInMapOrDefault(m, 3, "default"))
+    fmt.println(m[3] or_else "default")
 
     // This doesn't compile, because it's not a numeric type
     // s := add("hello", "world")
