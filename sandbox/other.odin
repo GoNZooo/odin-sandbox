@@ -1,16 +1,20 @@
 package sandbox
 
-import "core:fmt"
+import "core:log"
+import "core:mem"
+import "core:os"
+import "core:strings"
 
 Configuration :: struct {
 	filename: string,
 	interval: Interval,
+	url:      string,
 }
 
 Interval :: union {
 	Never,
 	Once,
-	int,
+	EveryMilliseconds,
 }
 
 Never :: struct {}
@@ -23,37 +27,68 @@ SomeOtherUnion :: union {
 	int,
 }
 
-// EveryMilliseconds :: struct {
-// 	interval: int,
-// }
+EveryMilliseconds :: struct {
+	interval: int,
+}
 
-read_configuration :: proc(filename: string, interval: Interval) -> (config: Configuration) {
+ParsingError :: union {
+	InvalidSyntax,
+	InvalidValue,
+}
+
+InvalidSyntax :: struct {
+	line:   int,
+	column: int,
+	data:   []byte,
+}
+
+InvalidValue :: struct {
+	line:   int,
+	column: int,
+	data:   []byte,
+	value:  string,
+}
+
+ConfigurationError :: union {
+	ParsingError,
+	FileReadFailed,
+	mem.Allocator_Error,
+}
+
+FileReadFailed :: struct {
+	filename: string,
+}
+
+parse_configuration :: proc(data: []byte) -> (config: Configuration, err: ParsingError) {
+	return config, nil
+}
+
+read_configuration :: proc(
+	filename: string,
+	interval: Interval,
+	url: string,
+	allocator := context.allocator,
+) -> (
+	config: Configuration,
+	err: ConfigurationError,
+) {
 	config.filename = filename
 	config.interval = interval
 
-	other_union: SomeOtherUnion
-
-	switch i in interval {
-	case Never, Once:
-		fmt.printf("never or once: %v\n", i)
-	case int:
-		fmt.printf("every: %v\n", i)
+	file_data, read_was_successful := os.read_entire_file_from_filename(filename, allocator)
+	if !read_was_successful {
+		return Configuration{}, FileReadFailed{filename = filename}
 	}
 
-	if every, is_every_milliseconds := interval.(int); is_every_milliseconds {
-		fmt.printf("every milliseconds: %v\n", every)
-	}
+	parsed_config := parse_configuration(file_data) or_return
+	log.debugf("Parsed config: %v\n", parsed_config)
+	parsed_config.url = strings.concatenate(
+		{
+			"prefix://prefix://prefix://prefix://prefix://prefix://prefix://prefix://",
+			parsed_config.url,
+		},
+		allocator,
+	) or_return
 
-	switch o in other_union {
-	case Never, bool:
-		fmt.printf("never or bool: %v\n", o)
-	case int:
-		fmt.printf("int: %v\n", o)
-	}
-
-	if int, is_int := interval.(int); is_int {
-		fmt.printf("int: %v\n", int)
-	}
-
-	return config
+	return parsed_config, nil
 }
