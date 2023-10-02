@@ -24,7 +24,7 @@ main :: proc() {
 		log.create_console_logger(),
 		log.create_file_logger(log_file_handle),
 	)
-	config, err := read_configuration("file1.txt", Once{}, "url")
+	config, err := read_configuration("config.json", Once{}, "url")
 	if err != nil {
 		fmt.panicf("Error reading configuration file: %v\n", err)
 	}

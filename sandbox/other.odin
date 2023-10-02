@@ -166,13 +166,7 @@ read_configuration :: proc(
 
 	parsed_config := parse_configuration(file_data) or_return
 	log.debugf("Parsed config: %v\n", parsed_config)
-	parsed_config.url = strings.concatenate(
-		{
-			"prefix://prefix://prefix://prefix://prefix://prefix://prefix://prefix://",
-			parsed_config.url,
-		},
-		allocator,
-	) or_return
+	parsed_config.url = strings.concatenate({"prefix://", parsed_config.url}, allocator) or_return
 
 	return parsed_config, nil
 }
