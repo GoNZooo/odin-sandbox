@@ -5,6 +5,14 @@ tasks:
     cmds:
       - task: test
 
+  run:
+    deps:
+      - build
+    cmds:
+      - bin/sandbox
+    silent: true
+    method: none
+
   build:
     cmds:
       - odin build sandbox -out=bin/sandbox
@@ -16,6 +24,27 @@ tasks:
     generates:
       - bin/sandbox
 
+  build_debug:
+    cmds:
+      - odin build sandbox -out=bin/sandbox-debug -o:none -debug
+    aliases:
+      - bd
+    silent: true
+    sources:
+      - ./sandbox/**/*.odin
+    generates:
+      - bin/sandbox-debug
+
+  debug:
+    deps:
+      - build_debug
+    cmds:
+      - gdb bin/sandbox-debug
+    aliases:
+      - d
+    silent: true
+    method: none
+
   test:
     cmds:
       - odin test sandbox
@@ -25,5 +54,22 @@ tasks:
     silent: true
     sources:
       - ./sandbox/**/*.odin
+
+  build_testcase:
+    cmds:
+      - odin build testcase -out:bin/testcase -o:none -debug
+    silent: true
+    sources:
+      - ./testcase/**/*.odin
+    generates:
+      - bin/testcase
+
+  testcase:
+    deps:
+      - build_testcase
+    cmds:
+      - gdb bin/testcase
+    silent: true
+    method: none
 
 interval: 250ms
