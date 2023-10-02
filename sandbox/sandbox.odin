@@ -19,6 +19,7 @@ main :: proc() {
 	if log_file_open_error != os.ERROR_NONE {
 		fmt.panicf("Error opening log file: %v\n", log_file_open_error)
 	}
+	defer os.close(log_file_handle)
 	context.allocator = arena_allocator
 	context.logger = log.create_multi_logger(
 		log.create_console_logger(),
