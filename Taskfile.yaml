@@ -35,6 +35,25 @@ tasks:
     generates:
       - bin/sandbox-debug
 
+  build_sgrep:
+    cmds:
+      - odin build sgrep -out:bin/sgrep -o:speed
+    aliases:
+      - bs
+    silent: true
+    sources:
+      - ./sgrep/**/*.odin
+    generates:
+      - bin/sgrep
+
+  sgrep:
+    deps:
+      - build_sgrep
+    cmds:
+      - bin/sgrep
+    silent: true
+    method: none
+
   debug:
     deps:
       - build_debug
