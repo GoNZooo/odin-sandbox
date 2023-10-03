@@ -37,7 +37,7 @@ tasks:
 
   build_sgrep:
     cmds:
-      - odin build sgrep -out:bin/sgrep -o:speed
+      - odin build sgrep -out:bin/sgrep -o:speed -collection:dependencies=dependencies
     aliases:
       - bs
     silent: true
