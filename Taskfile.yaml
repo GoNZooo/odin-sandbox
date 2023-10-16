@@ -73,6 +73,16 @@ tasks:
     silent: true
     sources:
       - ./sandbox/**/*.odin
+  
+  test_uuid:
+    cmds:
+      - odin test uuid
+    aliases:
+      - tu
+    method: none
+    silent: true
+    sources:
+      - ./uuid/**/*.odin
 
   build_testcase:
     cmds:
@@ -90,5 +100,48 @@ tasks:
       - gdb bin/testcase
     silent: true
     method: none
+
+  types_and_data:
+    deps:
+      - build_types_and_data
+    silent: true
+    cmds:
+      - bin/types-and-data {{.CLI_ARGS}}
+    method: none
+
+  build_types_and_data:
+    cmds:
+      - odin build types-and-data -out:bin/types-and-data -o:none -debug
+    silent: true
+    sources:
+      - ./types-and-data/**/*.odin
+    generates:
+      - bin/types-and-data
+
+  bits_and_bobs:
+    deps:
+      - build_bits_and_bobs
+    silent: true
+    cmds:
+      - bin/bits-and-bobs {{.CLI_ARGS}}
+    method: none
+
+  build_bits_and_bobs:
+    cmds:
+      - odin build bits-and-bobs -out:bin/bits-and-bobs -o:none -debug
+    silent: true
+    sources:
+      - ./bits-and-bobs/**/*.odin
+    generates:
+      - bin/bits-and-bobs
+
+  build_lz4_frames:
+    cmds:
+      - odin build lz4-frames -out:bin/lz4-frames -o:speed
+    silent: true
+    sources:
+      - ./lz4-frames/**/*.odin
+    generates:
+      - bin/lz4-frames
 
 interval: 250ms
