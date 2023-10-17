@@ -135,6 +135,23 @@ tasks:
     generates:
       - bin/bits-and-bobs
 
+  byte_order:
+    deps:
+      - build_byte_order
+    silent: true
+    cmds:
+      - bin/byte-order {{.CLI_ARGS}}
+    method: none
+
+  build_byte_order:
+    cmds:
+      - odin build byte-order -out:bin/byte-order -o:none -debug
+    silent: true
+    sources:
+      - ./byte-order/**/*.odin
+    generates:
+      - bin/byte-order
+
   build_lz4_frames:
     cmds:
       - odin build lz4-frames -out:bin/lz4-frames -o:speed
@@ -143,5 +160,13 @@ tasks:
       - ./lz4-frames/**/*.odin
     generates:
       - bin/lz4-frames
+
+  test_lz4_frames:
+    cmds:
+      - odin test lz4-frames -out:bin/lz4-frames-test
+    silent: true
+    method: none
+    sources:
+      - ./lz4-frames/**/*.odin
 
 interval: 250ms

@@ -2,9 +2,11 @@ package lz4_frames
 
 import "core:bytes"
 import "core:fmt"
+import "core:mem"
 import "core:os"
+import "core:testing"
 
-MAGIC_BYTES := [4]byte{0x04, 0x22, 0x4D, 0x18}
+MAGIC_VALUE :: 0x184D2204
 
 frame_next :: proc(data: []byte) -> (frame: []byte, rest: []byte) {
 	if len(data) < 7 {
@@ -16,7 +18,9 @@ frame_next :: proc(data: []byte) -> (frame: []byte, rest: []byte) {
 			return nil, data
 		}
 
-		if bytes.compare(data[i:i + 4], MAGIC_BYTES[:]) != 0 {
+		potential_magic_value := mem.reinterpret_copy(u32le, raw_data(data[i:i + 4]))
+
+		if potential_magic_value != MAGIC_VALUE {
 			continue
 		}
 
@@ -36,6 +40,29 @@ frame_next :: proc(data: []byte) -> (frame: []byte, rest: []byte) {
 	}
 
 	return nil, nil
+}
+
+@(test, private = "package")
+test_frame_next :: proc(t: ^testing.T) {
+	path :: "test-data/lz4-example.pak"
+
+	file_data, ok := os.read_entire_file_from_filename(path)
+	if !ok {
+		panic("Could not read file for test: '" + path + "'")
+	}
+	frames, alloc_error := make([dynamic][]byte, 0, 0)
+	if alloc_error != nil {
+		panic("Could not allocate frames array")
+	}
+
+	for frame, rest := frame_next(file_data); frame != nil; frame, rest = frame_next(rest) {
+		_, err := append(&frames, frame)
+		if err != nil {
+			panic("Could not append frame")
+		}
+	}
+
+	testing.expect_value(t, len(frames), 12)
 }
 
 main :: proc() {
