@@ -5,6 +5,14 @@ import "core:fmt"
 // byte ordering
 // endianness
 
+// Big-endian:
+// MSB        LSB
+//  00 11 22 33
+
+// Little-endian:
+// LSB        MSB
+//  33 22 11 00
+
 main :: proc() {
 	x: u32 = 0x18_4d_22_04
 	x_bytes := transmute([4]byte)x

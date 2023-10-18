@@ -1,0 +1,53 @@
+[Package: lz4_frames]
+[Test: test_frame_next]
+[0] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=55, Compressed=false, Checksum=0
+[1] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=116, Compressed=false, Checksum=0
+[2] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=118, Compressed=false, Checksum=0
+[3] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=127, Compressed=false, Checksum=0
+[4] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=513, Compressed=false, Checksum=0
+[5] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=460, Compressed=true, Checksum=0
+[6] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=206, Compressed=true, Checksum=0
+[7] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=1069, Compressed=false, Checksum=0
+[8] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=4094, Compressed=true, Checksum=0
+[9] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content_
+size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=21, Compressed=false, Checksum=0
+[10] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content
+_size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=58, Compressed=false, Checksum=0
+[11] Frame_Descriptor{version = 1, block_independence = false, has_block_checksum = false, block_max_size = 65536, content
+_size = 0, dictionary_id = 0, header_checksum = 192, calculated_checksum = 192}
+        Block count: 1
+                [0] Size=102, Compressed=false, Checksum=0
+[test_frame_next : SUCCESS]
+----------------------------------------
+1/1 SUCCESSFUL
