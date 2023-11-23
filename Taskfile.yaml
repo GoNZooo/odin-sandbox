@@ -169,4 +169,46 @@ tasks:
     sources:
       - ./lz4-frames/**/*.odin
 
-interval: 250ms
+  http_client:
+    deps:
+      - build_http_client
+    cmds:
+      - bin/http-client
+    method: none
+    silent: true
+
+  build_http_client:
+    cmds:
+      - odin build http-client -out:bin/http-client -o:none -debug
+    silent: true
+    sources:
+      - ./http-client/**/*.odin
+    generates:
+      - bin/http-client
+
+  debug_http_client:
+    deps:
+      - build_http_client
+    cmds:
+      - gdb bin/http-client
+    method: none
+    silent: true
+
+  objects:
+    deps:
+      - build_objects
+    cmds:
+      - bin/objects
+    method: none
+    silent: true
+
+  build_objects:
+    cmds:
+      - odin build objects -out:bin/objects -o:none -debug
+    silent: true
+    sources:
+      - ./objects/**/*.odin
+    generates:
+      - bin/objects
+
+interval: 100ms
