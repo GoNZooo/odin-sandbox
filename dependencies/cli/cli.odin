@@ -1,15 +1,15 @@
 package cli
 
-import "core:slice"
-import "core:os"
+import "core:fmt"
 import "core:intrinsics"
 import "core:log"
-import "core:testing"
-import "core:strings"
-import "core:reflect"
-import "core:fmt"
 import "core:mem"
+import "core:os"
+import "core:reflect"
+import "core:slice"
 import "core:strconv"
+import "core:strings"
+import "core:testing"
 
 StructCliInfo :: struct {
 	type:   typeid,
@@ -109,6 +109,7 @@ parse_arguments_as_type :: proc(
 
 	if reflect.is_struct(type_info_of(T)) {
 		cli_info := struct_decoding_info(T, allocator) or_return
+		defer delete(cli_info.fields, allocator)
 		if arguments[0] == "help" || arguments[0] == "-h" || arguments[0] == "--help" {
 			print_help_for_struct_and_exit(cli_info)
 		}
@@ -117,6 +118,7 @@ parse_arguments_as_type :: proc(
 			arguments,
 			allocator,
 		) or_return
+		defer delete(bytes, allocator)
 		v := mem.reinterpret_copy(T, raw_data(bytes))
 
 		return v, remaining, nil
@@ -124,6 +126,7 @@ parse_arguments_as_type :: proc(
 
 	if reflect.is_union(type_info_of(T)) {
 		cli_info := union_decoding_info(T, allocator) or_return
+		defer delete(cli_info.variants, allocator)
 		if arguments[0] == "help" || arguments[0] == "-h" || arguments[0] == "--help" {
 			print_help_for_union_and_exit(cli_info)
 		}
@@ -133,6 +136,7 @@ parse_arguments_as_type :: proc(
 			arguments,
 			allocator,
 		) or_return
+		defer delete(bytes, allocator)
 		v := mem.reinterpret_copy(T, raw_data(bytes))
 
 		return v, remaining, nil
@@ -147,7 +151,7 @@ parse_arguments_as_type :: proc(
 		if !ok {
 			return 0,
 				arguments,
-				CliValueParseError{
+				CliValueParseError {
 					value = arguments[0],
 					type = T,
 					message = fmt.tprintf("invalid integer value: '%s'", arguments[0]),
@@ -160,7 +164,7 @@ parse_arguments_as_type :: proc(
 		if !ok {
 			return 0,
 				arguments,
-				CliValueParseError{
+				CliValueParseError {
 					value = arguments[0],
 					type = T,
 					message = fmt.tprintf("invalid float value: '%s'", arguments[0]),
@@ -173,7 +177,7 @@ parse_arguments_as_type :: proc(
 		if !ok {
 			return 0,
 				arguments,
-				CliValueParseError{
+				CliValueParseError {
 					value = arguments[0],
 					type = T,
 					message = fmt.tprintf("invalid float value: '%s'", arguments[0]),
@@ -189,7 +193,7 @@ parse_arguments_as_type :: proc(
 		} else {
 			return false,
 				arguments,
-				CliValueParseError{
+				CliValueParseError {
 					value = arguments[0],
 					type = T,
 					message = fmt.tprintf("invalid boolean value: '%s'", arguments[0]),
@@ -277,7 +281,7 @@ test_parse_arguments_as_type :: proc(t: ^testing.T) {
 	ts: TestStruct
 	expected_arguments = []string{"rest", "of", "arguments"}
 	ts, remaining_arguments, error = parse_arguments_as_type(
-		{
+		 {
 			"-2",
 			"123",
 			"--field-one",
@@ -308,7 +312,7 @@ test_parse_arguments_as_type :: proc(t: ^testing.T) {
 	tc: TestCommand
 	expected_arguments = []string{"rest", "of", "arguments"}
 	tc, remaining_arguments, error = parse_arguments_as_type(
-		{
+		 {
 			"test-struct",
 			"-2",
 			"123",
@@ -341,6 +345,7 @@ test_parse_arguments_as_type :: proc(t: ^testing.T) {
 @(private = "file")
 make_argument_map :: proc(
 	arguments: []string,
+	cli_info: StructCliInfo,
 	allocator := context.allocator,
 ) -> (
 	result: map[string]string,
@@ -355,8 +360,30 @@ make_argument_map :: proc(
 		}
 
 		argument := arguments[i]
-		value := arguments[i + 1]
 		without_dash := strings.trim_left(argument, "-")
+		field_type: typeid
+		for field in cli_info.fields {
+			if field.cli_short_name == without_dash || field.cli_long_name == without_dash {
+				field_type = field.type
+				break
+			}
+		}
+		if i + 1 >= len(arguments) {
+			if field_type == bool {
+				result[without_dash] = "true"
+				i += 1
+				continue
+			}
+
+			return result,
+				arguments[i:],
+				CliValueParseError {
+					value = argument,
+					type = field_type,
+					message = "Expecting value for argument",
+				}
+		}
+		value := arguments[i + 1]
 		result[without_dash] = value
 		i += 2
 	}
@@ -368,7 +395,7 @@ make_argument_map :: proc(
 test_make_argument_map :: proc(t: ^testing.T) {
 	context.logger = log.create_console_logger()
 
-	arguments := []string{
+	arguments := []string {
 		"-2",
 		"123",
 		"--field-one",
@@ -382,7 +409,11 @@ test_make_argument_map :: proc(t: ^testing.T) {
 		"arguments",
 	}
 	expected_remaining_arguments := []string{"rest", "of", "arguments"}
-	result, remaining_arguments, error := make_argument_map(arguments, context.allocator)
+	result, remaining_arguments, error := make_argument_map(
+		arguments,
+		StructCliInfo{},
+		context.allocator,
+	)
 	testing.expect_value(t, error, nil)
 	testing.expect_value(t, result["2"], "123")
 	testing.expect_value(t, result["field-one"], "foo")
@@ -392,6 +423,68 @@ test_make_argument_map :: proc(t: ^testing.T) {
 		t,
 		slice.equal(remaining_arguments, expected_remaining_arguments),
 		fmt.tprintf("Expected remaining arguments to equal %v, got: %v", remaining_arguments),
+	)
+
+	arguments2 := []string {
+		"-2",
+		"123",
+		"--field-one",
+		"foo",
+		"--no-tag",
+		"123.456",
+		"--field-three",
+		"true",
+		"--inverted",
+	}
+	result2, remaining_arguments2, error2 := make_argument_map(
+		arguments2,
+		StructCliInfo {
+			fields = []FieldCliInfo{{name = "inverted", type = bool, cli_long_name = "inverted"}},
+		},
+		context.allocator,
+	)
+	testing.expect_value(t, error2, nil)
+	testing.expect_value(t, result2["2"], "123")
+	testing.expect_value(t, result2["field-one"], "foo")
+	testing.expect_value(t, result2["no-tag"], "123.456")
+	testing.expect_value(t, result2["field-three"], "true")
+	testing.expect_value(t, result2["inverted"], "true")
+	testing.expect(
+		t,
+		slice.equal(remaining_arguments2, []string{}),
+		fmt.tprintf(
+			"Expected remaining arguments to equal %v, got: %v",
+			[]string{},
+			remaining_arguments2,
+		),
+	)
+
+	arguments3 := []string {
+		"-2",
+		"123",
+		"--field-one",
+		"foo",
+		"--no-tag",
+		"123.456",
+		"--field-three",
+		"true",
+		"--count",
+	}
+	_, _, error3 := make_argument_map(
+		arguments3,
+		StructCliInfo {
+			fields = []FieldCliInfo{{name = "count", type = int, cli_long_name = "count"}},
+		},
+		context.allocator,
+	)
+	testing.expect_value(
+		t,
+		error3,
+		CliValueParseError {
+			value = "--count",
+			type = int,
+			message = "Expecting value for argument",
+		},
 	)
 }
 
@@ -406,16 +499,12 @@ parse_arguments_with_struct_cli_info :: proc(
 	error: CliParseError,
 ) {
 	value_bytes := make([]byte, cli_info.size, allocator)
-	argument_map, remaining := make_argument_map(arguments, context.allocator) or_return
+	argument_map, remaining := make_argument_map(arguments, cli_info, context.allocator) or_return
+	defer delete(argument_map)
 	for field in cli_info.fields {
-		map_value: string
-		has_value: bool
-		map_value, has_value = argument_map[field.cli_long_name]
+		map_value, has_value := argument_map[field.cli_long_name]
 		if !has_value && field.cli_short_name != "" {
 			map_value, has_value = argument_map[field.cli_short_name]
-		}
-		if has_value && field.type == bool && map_value == "" {
-			map_value = "true"
 		}
 		if !has_value && field.required {
 			error = CliValueParseError {
@@ -423,8 +512,14 @@ parse_arguments_with_struct_cli_info :: proc(
 			}
 
 			return []byte{}, arguments, error
+		} else if !has_value {
+			continue
+		}
+		if has_value && field.type == bool && map_value == "" {
+			map_value = "true"
 		}
 		parsed_value := parse_argument_as_type(map_value, field.type, allocator) or_return
+		defer delete(parsed_value, allocator)
 		copy(value_bytes[field.offset:], parsed_value)
 	}
 
@@ -435,7 +530,7 @@ parse_arguments_with_struct_cli_info :: proc(
 test_parse_arguments_with_struct_cli_info :: proc(t: ^testing.T) {
 	context.logger = log.create_console_logger()
 
-	arguments := []string{
+	arguments := []string {
 		"-2",
 		"123",
 		"--field-one",
@@ -484,7 +579,7 @@ test_parse_arguments_with_struct_cli_info :: proc(t: ^testing.T) {
 	testing.expect_value(
 		t,
 		ts2,
-		TestStructDifferentOrder{
+		TestStructDifferentOrder {
 			field_one = "foo",
 			field_two = 123,
 			field_three = true,
@@ -534,9 +629,13 @@ parse_arguments_with_union_cli_info :: proc(
 	error: CliParseError,
 ) {
 	value_bytes := make([]byte, cli_info.size, allocator)
+	defer if error != nil {
+		delete(value_bytes, allocator)
+	}
 
 	for variant, i in cli_info.variants {
 		variant_cli_info := struct_decoding_info(variant.payload, allocator) or_return
+		defer delete(variant_cli_info.fields, allocator)
 		if arguments[0] == variant_cli_info.name {
 			variant_tag := i + cli_info.start_tag
 			copy(value_bytes[cli_info.tag_offset:], mem.any_to_bytes(variant_tag))
@@ -546,6 +645,7 @@ parse_arguments_with_union_cli_info :: proc(
 				arguments[1:],
 				allocator,
 			) or_return
+			defer delete(payload_bytes, allocator)
 			copy(value_bytes[0:], payload_bytes)
 
 			return value_bytes, remaining, nil
@@ -554,7 +654,7 @@ parse_arguments_with_union_cli_info :: proc(
 
 	return result,
 		arguments,
-		CliValueParseError{
+		CliValueParseError {
 			message = fmt.tprintf("Unable to parse any variants from union '%v'", cli_info),
 		}
 }
@@ -569,7 +669,10 @@ parse_argument_as_type :: proc(
 	error: CliParseError,
 ) {
 	if t == string {
-		return mem.any_to_bytes(argument), nil
+		v := mem.any_to_bytes(argument)
+		cloned := slice.clone(v, allocator) or_return
+
+		return cloned, nil
 	} else if t == int {
 		i, ok := strconv.parse_int(argument, 10)
 		if !ok {
@@ -579,8 +682,10 @@ parse_argument_as_type :: proc(
 
 			return result, error
 		}
+		v := mem.any_to_bytes(i)
+		cloned := slice.clone(v, allocator) or_return
 
-		return mem.any_to_bytes(i), nil
+		return cloned, nil
 	} else if t == f32 {
 		f, ok := strconv.parse_f32(argument)
 		if !ok {
@@ -590,8 +695,10 @@ parse_argument_as_type :: proc(
 
 			return result, error
 		}
+		v := mem.any_to_bytes(f)
+		cloned := slice.clone(v, allocator) or_return
 
-		return mem.any_to_bytes(f), nil
+		return cloned, nil
 	} else if t == f64 {
 		f, ok := strconv.parse_f64(argument)
 		if !ok {
@@ -601,13 +708,16 @@ parse_argument_as_type :: proc(
 
 			return result, error
 		}
+		v := mem.any_to_bytes(f)
+		cloned := slice.clone(v, allocator) or_return
 
-		return mem.any_to_bytes(f), nil
+		return cloned, nil
 	} else if t == bool {
+		v: []byte
 		if argument == "true" {
-			return mem.any_to_bytes(true), nil
+			v = mem.any_to_bytes(true)
 		} else if argument == "false" {
-			return mem.any_to_bytes(false), nil
+			v = mem.any_to_bytes(false)
 		} else {
 			error = CliValueParseError {
 				message = fmt.tprintf("invalid boolean: '%s'", argument),
@@ -615,6 +725,9 @@ parse_argument_as_type :: proc(
 
 			return result, error
 		}
+		cloned := slice.clone(v, allocator) or_return
+
+		return cloned, nil
 	} else {
 		error = CliValueParseError {
 			message = fmt.tprintf("unsupported type: %v", t),
@@ -678,6 +791,9 @@ struct_decoding_info :: proc(
 	cli_info.name = union_variant_name(fmt.tprintf("%v", type))
 	struct_fields := reflect.struct_fields_zipped(type)
 	cli_info.fields = make([]FieldCliInfo, len(struct_fields), allocator) or_return
+	defer if error != nil {
+		delete(cli_info.fields, allocator)
+	}
 
 	for f, i in struct_fields {
 		tag := reflect.struct_tag_get(f.tag, "cli")
@@ -701,8 +817,8 @@ test_struct_decoding_info :: proc(t: ^testing.T) {
 	if allocator_error != nil {
 		fmt.panicf("Allocator error: %s", allocator_error)
 	}
-	fields := []FieldCliInfo{
-		{
+	fields := []FieldCliInfo {
+		 {
 			name = "field_one",
 			type = string,
 			cli_short_name = "1",
@@ -711,7 +827,7 @@ test_struct_decoding_info :: proc(t: ^testing.T) {
 			required = false,
 			size = 16,
 		},
-		{
+		 {
 			name = "field_two",
 			type = int,
 			cli_short_name = "2",
@@ -720,7 +836,7 @@ test_struct_decoding_info :: proc(t: ^testing.T) {
 			required = true,
 			size = 8,
 		},
-		{
+		 {
 			name = "field_three",
 			type = bool,
 			cli_short_name = "",
@@ -729,7 +845,7 @@ test_struct_decoding_info :: proc(t: ^testing.T) {
 			required = true,
 			size = 1,
 		},
-		{
+		 {
 			name = "no_tag",
 			type = f32,
 			cli_short_name = "",
@@ -754,8 +870,8 @@ test_struct_decoding_info :: proc(t: ^testing.T) {
 	if allocator_error != nil {
 		fmt.panicf("Allocator error: %s", allocator_error)
 	}
-	fields = []FieldCliInfo{
-		{
+	fields = []FieldCliInfo {
+		 {
 			name = "field_one",
 			type = string,
 			cli_short_name = "f1",
@@ -803,6 +919,9 @@ union_decoding_info :: proc(
 
 	variant_count := len(union_info.variants)
 	variants := make([]VariantCliInfo, variant_count, allocator) or_return
+	defer if error != nil {
+		delete(variants, allocator)
+	}
 	for variant, i in union_info.variants {
 		variants[i] = VariantCliInfo {
 			payload = variant.id,
@@ -817,8 +936,11 @@ union_decoding_info :: proc(
 @(test, private = "package")
 test_union_decoding_info :: proc(t: ^testing.T) {
 	context.logger = log.create_console_logger()
+	_tracking_allocator: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&_tracking_allocator, context.allocator)
+	tracking_allocator := mem.tracking_allocator(&_tracking_allocator)
 
-	cli_info, decoding_info_error := union_decoding_info(TestCommand)
+	cli_info, decoding_info_error := union_decoding_info(TestCommand, tracking_allocator)
 	testing.expect_value(t, decoding_info_error, nil)
 	testing.expect_value(t, cli_info.size, 40)
 	testing.expect_value(t, cli_info.tag_offset, 32)
@@ -827,6 +949,9 @@ test_union_decoding_info :: proc(t: ^testing.T) {
 	if len(cli_info.variants) == 1 {
 		testing.expect_value(t, cli_info.variants[0].payload, TestStruct)
 	}
+	delete(cli_info.variants, tracking_allocator)
+
+	expect_no_leaks(t, _tracking_allocator)
 
 	cli_info2, decoding_info_error2 := union_decoding_info(TestCommandNoNil)
 	testing.expect_value(t, decoding_info_error2, nil)
@@ -1032,4 +1157,102 @@ print_help_for_struct_and_exit :: proc(
 	fmt.print(text)
 
 	os.exit(0)
+}
+
+@(test, private = "package")
+test_memory_leaks_1 :: proc(t: ^testing.T) {
+	context.logger = log.create_console_logger()
+
+	Command :: union {
+		Encode,
+		Decode,
+	}
+
+	Encode :: struct {
+		N:     int `cli:"N,num-code"`,
+		K:     int `cli:"K,num-data"`,
+		w:     int `cli:"w,word-size"`,
+		input: string `cli:"i,input/required"`,
+		shard: string `cli:"s,shard/required"`,
+	}
+
+	Decode :: struct {
+		N:      int `cli:"N,num-code"`,
+		K:      int `cli:"K,num-data"`,
+		w:      int `cli:"w,word-size"`,
+		output: string `cli:"o,output/required"`,
+		shard:  string `cli:"s,shard/required"`,
+	}
+
+	_tracking_allocator: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&_tracking_allocator, context.allocator)
+	tracking_allocator := mem.tracking_allocator(&_tracking_allocator)
+
+	arguments := []string{"decode", "--output", "blah.txt", "--shard", "encoded", "-N", "5"}
+	command, _, error := parse_arguments_as_type(arguments, Command, tracking_allocator)
+	testing.expect_value(t, error, nil)
+
+	testing.expect_value(
+		t,
+		command,
+		Decode{N = 5, K = 0, w = 0, output = "blah.txt", shard = "encoded"},
+	)
+	expect_no_leaks(t, _tracking_allocator)
+
+	if len(_tracking_allocator.bad_free_array) != 0 {
+		for v in _tracking_allocator.bad_free_array {
+			fmt.printf("bad free: %v\n", v)
+		}
+	}
+}
+
+@(test, private = "package")
+test_edyu1 :: proc(t: ^testing.T) {
+	context.logger = log.create_console_logger()
+
+	Command :: union {
+		Encode,
+		Decode,
+	}
+
+	Encode :: struct {
+		N:     int `cli:"N,num-code"`,
+		K:     int `cli:"K,num-data"`,
+		w:     int `cli:"w,word-size"`,
+		input: string `cli:"i,input/required"`,
+		shard: string `cli:"s,shard/required"`,
+	}
+
+	Decode :: struct {
+		N:      int `cli:"N,num-code"`,
+		K:      int `cli:"K,num-data"`,
+		w:      int `cli:"w,word-size"`,
+		output: string `cli:"o,output/required"`,
+		shard:  string `cli:"s,shard/required"`,
+	}
+
+	arguments := []string{"decode", "--output", "blah.txt", "--shard", "encoded", "-N", "5"}
+	command, remaining, error := parse_arguments_as_type(arguments, Command, context.allocator)
+	testing.expect_value(t, error, nil)
+
+	testing.expect_value(
+		t,
+		command,
+		Decode{N = 5, K = 0, w = 0, output = "blah.txt", shard = "encoded"},
+	)
+	testing.expect_value(t, len(remaining), 0)
+}
+
+expect_no_leaks :: proc(t: ^testing.T, allocator: mem.Tracking_Allocator) -> bool {
+	if len(allocator.allocation_map) != 0 {
+		fmt.printf("Expected no leaks, got %d\n", len(allocator.allocation_map))
+		for k, v in allocator.allocation_map {
+			fmt.printf("Leak: %s: %d\n", k, v)
+		}
+		testing.expect_value(t, len(allocator.allocation_map), 0)
+
+		return false
+	}
+
+	return true
 }
