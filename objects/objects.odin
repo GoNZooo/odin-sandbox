@@ -42,13 +42,17 @@ User :: struct {
 }
 
 main :: proc() {
-	u := User {
-		name                   = "Rickard",
-		age                    = 36,
-		social_security_number = "1234567890",
-		// redact                 = user_nil_redact,
-		format                 = user_format,
+	values := make([dynamic]string, 0, 0)
+	append(&values, "0", "2", "4")
+
+	for v, i in values {
+		fmt.printf("%d: %s\n", i, v)
+		if i == 0 {
+			inject_at_elem(&values, 1, "1")
+		} else if i == 2 {
+			inject_at_elem(&values, 3, "3")
+		}
 	}
 
-	log_redacted(&u)
+	return
 }

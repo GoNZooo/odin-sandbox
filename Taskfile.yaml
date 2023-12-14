@@ -211,4 +211,21 @@ tasks:
     generates:
       - bin/objects
 
+  aos:
+    deps:
+      - build_aos
+    cmds:
+      - bin/aos {{.CLI_ARGS}}
+    method: none
+    silent: true
+
+  build_aos:
+    cmds:
+      - odin build aos -out:bin/aos -o:aggressive -microarch:native
+    silent: true
+    sources:
+      - ./aos/**/*.odin
+    generates:
+      - bin/aos
+
 interval: 100ms
